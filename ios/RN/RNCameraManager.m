@@ -239,7 +239,6 @@ RCT_CUSTOM_VIEW_PROPERTY(barCodeTypes, NSArray, RNCamera)
 
 RCT_CUSTOM_VIEW_PROPERTY(textRecognizerEnabled, BOOL, RNCamera)
 {
-    
     view.canReadText = [RCTConvert BOOL:json];
     [view setupOrDisableTextDetector];
 }

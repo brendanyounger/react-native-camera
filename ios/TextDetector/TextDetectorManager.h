@@ -1,3 +1,5 @@
+#import <React/RCTComponent.h>
+
 #if __has_include(<GoogleMobileVision/GoogleMobileVision.h>)
 #import <GoogleMobileVision/GoogleMobileVision.h>
 
@@ -6,7 +8,7 @@
 - (instancetype)init;
 
 -(BOOL)isRealDetector;
--(NSArray *)findTextBlocksInFrame:(UIImage *)image scaleX:(float)scaleX scaleY:(float) scaleY;
+-(void)findTextBlocksInFrame:(UIImage*)image  semaphore:(dispatch_semaphore_t)sema callback:(RCTDirectEventBlock)cb;
 
 @end
 #endif

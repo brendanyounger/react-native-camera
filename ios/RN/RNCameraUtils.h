@@ -20,6 +20,7 @@
 + (AVCaptureVideoOrientation)videoOrientationForInterfaceOrientation:(UIInterfaceOrientation)orientation;
 
 // Text detector utilities
++ (UIImage * _Nullable)imageWithSampleBuffer:(CMSampleBufferRef _Nonnull)sampleBuffer;
 + (UIImage *)convertBufferToUIImage:(CMSampleBufferRef)sampleBuffer previewSize:(CGSize)previewSize;
 
 @end

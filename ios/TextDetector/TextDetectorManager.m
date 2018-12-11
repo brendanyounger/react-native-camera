@@ -1,68 +1,81 @@
-#if __has_include(<GoogleMobileVision/GoogleMobileVision.h>)
+#import <FirebaseMLVision/FirebaseMLVision.h>
+#import <React/RCTLog.h>
 #import "TextDetectorManager.h"
 
 @interface TextDetectorManager ()
-@property(nonatomic, strong) GMVDetector *textDetector;
+@property(nonatomic, strong) FIRVisionTextRecognizer* textDetector;
 @property(nonatomic, assign) float scaleX;
 @property(nonatomic, assign) float scaleY;
 @end
 
 @implementation TextDetectorManager
 
-- (instancetype)init
-{
+- (instancetype)init {
   if (self = [super init]) {
-  self.textDetector = [GMVDetector detectorOfType:GMVDetectorTypeText options:nil];
+      self.textDetector = [[FIRVision vision] onDeviceTextRecognizer];
   }
   return self;
 }
 
--(BOOL)isRealDetector
-{
+-(BOOL)isRealDetector {
   return true;
 }
 
-- (NSArray *)findTextBlocksInFrame:(UIImage *)image scaleX:(float)scaleX scaleY:(float) scaleY
-{
-  self.scaleX = scaleX;
-  self.scaleY = scaleY;
-  NSArray<GMVTextBlockFeature *> *features =
-        [self.textDetector featuresInImage:image options:nil];
-   NSArray *textBlocks = [self processFeature:features];
-  return textBlocks;
-}
-
-- (NSArray *)processFeature:(NSArray *)features
-{
-  NSMutableArray *textBlocks = [[NSMutableArray alloc] init];
-    for (GMVTextBlockFeature *textBlock in features) {
-        NSDictionary *textBlockDict = 
-        @{@"type": @"block", @"value" : textBlock.value, @"bounds" : [self processBounds:textBlock.bounds], @"components" : [self processLine:textBlock.lines]};
-        [textBlocks addObject:textBlockDict];
-  }
-  return textBlocks;
-}
-
--(NSArray *)processLine:(NSArray *)lines
-{
-  NSMutableArray *lineBlocks = [[NSMutableArray alloc] init];
-  for (GMVTextLineFeature *textLine in lines) {
-        NSDictionary *textLineDict = 
-        @{@"type": @"line", @"value" : textLine.value, @"bounds" : [self processBounds:textLine.bounds], @"components" : [self processElement:textLine.elements]};
-        [lineBlocks addObject:textLineDict];
-        }
-    return lineBlocks;
-}
-
--(NSArray *)processElement:(NSArray *)elements 
-{
-  NSMutableArray *elementBlocks = [[NSMutableArray alloc] init];
-  for (GMVTextElementFeature *textElement in elements) {
-        NSDictionary *textElementDict = 
-        @{@"type": @"element", @"value" : textElement.value, @"bounds" : [self processBounds:textElement.bounds]};
-        [elementBlocks addObject:textElementDict];
-        }
-    return elementBlocks;
+- (void)findTextBlocksInFrame:(UIImage*)uiImage semaphore:(dispatch_semaphore_t)sema callback:(RCTDirectEventBlock)cb {
+    self.scaleX = 1;
+    self.scaleY = 1;
+    
+    FIRVisionImage *firImage = [[FIRVisionImage alloc] initWithImage:uiImage];
+    
+    [self.textDetector processImage:firImage completion:^(FIRVisionText *_Nullable result, NSError *_Nullable error) {
+        dispatch_semaphore_signal(sema);
+        
+        if (error != nil || result == nil) {
+            if(error != nil) {
+                RCTLogWarn(@"Error! %@, %@", error, result);
+            }
+        } else {
+            NSMutableArray *textBlocks = [[NSMutableArray alloc] init];
+            // NSString *resultText = result.text;
+           
+            RCTLogInfo(@"Blocks %@, %@", result.text, result.blocks);
+            for (FIRVisionTextBlock *block in result.blocks) {
+               NSString *blockText = block.text;
+//               NSNumber *blockConfidence = block.confidence;
+//               NSArray<FIRVisionTextRecognizedLanguage *> *blockLanguages = block.recognizedLanguages;
+//               NSArray<NSValue *> *blockCornerPoints = block.cornerPoints;
+               CGRect blockFrame = block.frame;
+               NSMutableArray *lineBlocks = [[NSMutableArray alloc] init];
+               
+               for (FIRVisionTextLine *line in block.lines) {
+                   NSString *lineText = line.text;
+//                   NSNumber *lineConfidence = line.confidence;
+//                   NSArray<FIRVisionTextRecognizedLanguage *> *lineLanguages = line.recognizedLanguages;
+//                   NSArray<NSValue *> *lineCornerPoints = line.cornerPoints;
+                   CGRect lineFrame = line.frame;
+                   NSMutableArray *elementBlocks = [[NSMutableArray alloc] init];
+                   
+                   for (FIRVisionTextElement *element in line.elements) {
+                       NSString *elementText = element.text;
+//                       NSNumber *elementConfidence = element.confidence;
+//                       NSArray<FIRVisionTextRecognizedLanguage *> *elementLanguages = element.recognizedLanguages;
+//                       NSArray<NSValue *> *elementCornerPoints = element.cornerPoints;
+                       CGRect elementFrame = element.frame;
+                       
+                       NSDictionary *textElementDict = @{@"type": @"element", @"value" : elementText, @"bounds" : [self processBounds:elementFrame]};
+                       [elementBlocks addObject:textElementDict];
+                   }
+                   
+                   NSDictionary *textLineDict = @{@"type": @"line", @"value" : lineText, @"bounds" : [self processBounds:lineFrame], @"components" : elementBlocks};
+                   [lineBlocks addObject:textLineDict];
+               }
+               
+               NSDictionary *textBlockDict = @{@"type": @"block", @"value" : blockText, @"bounds" : [self processBounds:blockFrame], @"components" : lineBlocks};
+               [textBlocks addObject:textBlockDict];
+           }
+           cb(@{@"type" : @"TextBlock", @"textBlocks" : textBlocks});
+       }
+   }];
 }
 
 -(NSDictionary *)processBounds:(CGRect)bounds 
@@ -88,5 +101,3 @@
 }
 
 @end
-
-#endif
