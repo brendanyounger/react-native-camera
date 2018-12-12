@@ -775,7 +775,6 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 }
 
 - (void)orientationChanged:(NSNotification *)notification {
-    RCTLogInfo(@"Orientation changed! %ld", UIDevice.currentDevice.orientation);
     UIInterfaceOrientation orientation = [[UIApplication sharedApplication] statusBarOrientation];
     [self changePreviewOrientation:orientation];
 }
@@ -1122,18 +1121,11 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
     return image;
 }
 
-- (void)captureOutput:(AVCaptureOutput *)captureOutput
-    didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
-           fromConnection:(AVCaptureConnection *)connection {
-    UIImage *uiImage = nil;
+- (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
     CGSize previewSize = _previewLayer.frame.size;
+    UIImage *uiImage = [RNCameraUtils convertBufferToUIImage:sampleBuffer previewSize:previewSize];
     
-    if(_onBarCodeRead && (0 == dispatch_semaphore_wait(self.barcodeSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
-        if(uiImage == nil) {
-            uiImage = [RNCameraUtils convertBufferToUIImage:sampleBuffer previewSize:previewSize];
-            // uiImage = [RNCameraUtils imageWithSampleBuffer:sampleBuffer];
-        }
-        
+    if(_onBarCodeRead && (uiImage != nil) && (0 == dispatch_semaphore_wait(self.barcodeSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
         FIRVisionImage *firImage = [[FIRVisionImage alloc] initWithImage:uiImage];
         // FIRVisionImage *firImage = [self imageFromBuffer:sampleBuffer];
         
@@ -1149,7 +1141,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
                     NSString *displayValue = barcode.displayValue;
                     // NSString *rawValue = barcode.rawValue;
                     
-                    RCTLogInfo(@"Barcode %@, %@, %ld", barcode.displayValue, barcode.rawValue, UIDevice.currentDevice.orientation);
+                    // RCTLogInfo(@"Barcode %@, %@, %ld", barcode.displayValue, barcode.rawValue, UIDevice.currentDevice.orientation);
                     
                     [barcodeList addObject:displayValue];
                     
@@ -1170,17 +1162,12 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
                 }
                 
                 self.onBarCodeRead(@{@"type": @"BarcodeList",
-                                     @"barcodes" : barcodeList});
+                                     @"barcodes": barcodeList});
             }
         }];
     }
     
-    if([self canReadText] && _onTextRecognized && (0 == dispatch_semaphore_wait(self.textSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
-        if(uiImage == nil) {
-            uiImage = [RNCameraUtils convertBufferToUIImage:sampleBuffer previewSize:previewSize];
-            // uiImage = [RNCameraUtils imageWithSampleBuffer:sampleBuffer];
-        }
-        
+    if([self canReadText] && _onTextRecognized && (uiImage != nil) && (0 == dispatch_semaphore_wait(self.textSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
         FIRVisionImage *firImage = [[FIRVisionImage alloc] initWithImage:uiImage];
         // FIRVisionImage *firImage = [self imageFromBuffer:sampleBuffer];
         float scaleX = previewSize.width / uiImage.size.width;
@@ -1197,7 +1184,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
                 for (FIRVisionTextBlock *block in result.blocks) {
                     NSMutableArray *lineBlocks = [[NSMutableArray alloc] init];
                     
-                    RCTLogInfo(@"Block %@, %ld", block.text, UIDevice.currentDevice.orientation);
+                    // RCTLogInfo(@"Block %@, %ld", block.text, UIDevice.currentDevice.orientation);
                     
                     for (FIRVisionTextLine *line in block.lines) {
                         NSMutableArray *elementBlocks = [[NSMutableArray alloc] init];
@@ -1222,7 +1209,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
                 
                 self.onTextRecognized(@{@"type": @"TextBlock",
                                         @"text": result.text,
-                                        @"textBlocks" : textBlocks});
+                                        @"textBlocks": textBlocks});
             }
         }];
     }
