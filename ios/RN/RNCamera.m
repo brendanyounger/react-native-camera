@@ -605,7 +605,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         // to avoid an exposure rack on some devices that can cause the first few
         // frames of the recorded output to be underexposed.
         // [self setupMovieFileCapture];
-        [self setupOrDisableTextDetector];
+        [self setupTextDetector];
 
         __weak RNCamera *weakSelf = self;
         [self setRuntimeErrorHandlingObserver:
@@ -1023,19 +1023,24 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 
 # pragma mark - TextDetector
 
-- (void)setupOrDisableTextDetector {
-    if ([self canReadText]) {
-        self.videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
-        if (![self.session canAddOutput:_videoDataOutput]) {
-            NSLog(@"Failed to setup video data output");
-            [self stopTextRecognition];
-            return;
-        }
+- (void)setupTextDetector {
+    [self stopTextRecognition];
+    self.videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
+    if (![self.session canAddOutput:_videoDataOutput]) {
+        RCTLogWarn(@"Failed to setup video data output");
+        [self stopTextRecognition];
+    } else {
         NSDictionary *rgbOutputSettings = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCMPixelFormat_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey];
         [self.videoDataOutput setVideoSettings:rgbOutputSettings];
         [self.videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
         [self.videoDataOutput setSampleBufferDelegate:self queue:self.sessionQueue];
         [self.session addOutput:_videoDataOutput];
+    }
+}
+
+- (void)setupOrDisableTextDetector {
+    if ([self canReadText] || [self isReadingBarCodes]) {
+        [self setupTextDetector];
     } else {
         [self stopTextRecognition];
     }
@@ -1167,7 +1172,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         }];
     }
     
-    if([self canReadText] && _onTextRecognized && (uiImage != nil) && (0 == dispatch_semaphore_wait(self.textSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
+    if(_onTextRecognized && (uiImage != nil) && (0 == dispatch_semaphore_wait(self.textSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
         FIRVisionImage *firImage = [[FIRVisionImage alloc] initWithImage:uiImage];
         // FIRVisionImage *firImage = [self imageFromBuffer:sampleBuffer];
         float scaleX = previewSize.width / uiImage.size.width;

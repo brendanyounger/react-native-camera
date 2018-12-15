@@ -229,7 +229,7 @@ RCT_CUSTOM_VIEW_PROPERTY(barCodeScannerEnabled, BOOL, RNCamera)
 {
     
     view.isReadingBarCodes = [RCTConvert BOOL:json];
-    [view setupOrDisableBarcodeScanner];
+    [view setupOrDisableTextDetector];
 }
 
 RCT_CUSTOM_VIEW_PROPERTY(barCodeTypes, NSArray, RNCamera)
