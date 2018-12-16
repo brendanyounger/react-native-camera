@@ -1,7 +1,6 @@
 // @flow
 import React from 'react';
 import PropTypes from 'prop-types';
-import { mapValues } from 'lodash';
 import {
   findNodeHandle,
   Platform,
@@ -31,10 +30,11 @@ const styles = StyleSheet.create({
 });
 
 type Orientation = 'auto' | 'landscapeLeft' | 'landscapeRight' | 'portrait' | 'portraitUpsideDown';
+type OrientationNumber = 1 | 2 | 3 | 4;
 
 type PictureOptions = {
   quality?: number,
-  orientation?: Orientation,
+  orientation?: Orientation | OrientationNumber,
   base64?: boolean,
   mirrorImage?: boolean,
   exif?: boolean,
@@ -151,6 +151,14 @@ const CameraManager: Object = NativeModules.RNCameraManager ||
 
 const EventThrottleMs = 500;
 
+const mapValues = (input, mapper) => {
+  const result = {};
+  Object.entries(input).map(([key, value]) => {
+    result[key] = mapper(value, key);
+  });
+  return result;
+};
+
 export default class Camera extends React.Component<PropsType, StateType> {
   static Constants = {
     Type: CameraManager.Type,
@@ -164,6 +172,13 @@ export default class Camera extends React.Component<PropsType, StateType> {
     FaceDetection: CameraManager.FaceDetection,
     CameraStatus,
     VideoStabilization: CameraManager.VideoStabilization,
+    Orientation: {
+      auto: 'auto',
+      landscapeLeft: 'landscapeLeft',
+      landscapeRight: 'landscapeRight',
+      portrait: 'portrait',
+      portraitUpsideDown: 'portraitUpsideDown',
+    },
   };
 
   // Values under keys from this object will be transformed to native options
@@ -255,6 +270,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
   _cameraHandle: ?number;
   _lastEvents: { [string]: string };
   _lastEventsTimes: { [string]: Date };
+  _isMounted: boolean;
 
   constructor(props: PropsType) {
     super(props);
@@ -274,8 +290,16 @@ export default class Camera extends React.Component<PropsType, StateType> {
     if (!options.quality) {
       options.quality = 1;
     }
+
     if (options.orientation) {
-      options.orientation = CameraManager.Orientation[options.orientation];
+      if (typeof options.orientation !== 'number') {
+        const { orientation } = options;
+        options.orientation = CameraManager.Orientation[orientation];
+        if (typeof options.orientation !== 'number') {
+          // eslint-disable-next-line no-console
+          console.warn(`Orientation '${orientation}' is invalid.`);
+        }
+      }
     }
 
     if (options.pauseAfterCapture === undefined) {
@@ -294,6 +318,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
   }
 
   getAvailablePictureSizes = async (): string[] => {
+    //$FlowFixMe
     return await CameraManager.getAvailablePictureSizes(this.props.ratio, this._cameraHandle);
   };
 
@@ -303,8 +328,15 @@ export default class Camera extends React.Component<PropsType, StateType> {
     } else if (typeof options.quality === 'string') {
       options.quality = Camera.Constants.VideoQuality[options.quality];
     }
-    if (typeof options.orientation === 'string') {
-      options.orientation = CameraManager.Orientation[options.orientation];
+    if (options.orientation) {
+      if (typeof options.orientation !== 'number') {
+        const { orientation } = options;
+        options.orientation = CameraManager.Orientation[orientation];
+        if (typeof options.orientation !== 'number') {
+          // eslint-disable-next-line no-console
+          console.warn(`Orientation '${orientation}' is invalid.`);
+        }
+      }
     }
     return await CameraManager.record(options, this._cameraHandle);
   }
@@ -436,7 +468,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
     }
   }
 
-  _convertNativeProps(props: PropsType) {
+  _convertNativeProps({ children, ...props }: PropsType) {
     const newProps = mapValues(props, this._convertProp);
 
     if (props.onBarCodeRead) {
