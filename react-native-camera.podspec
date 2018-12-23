@@ -21,30 +21,10 @@ Pod::Spec.new do |s|
 
   s.subspec "RN" do |ss|
     ss.source_files = "ios/RN/**/*.{h,m}"
-  end
-
-  s.subspec "FaceDetector" do |ss|
-    ss.dependency 'react-native-camera/RN'
-    ss.dependency 'react-native-camera/RCT'
-
-    ss.dependency 'GoogleMobileVision/Detector', '~> 1.4'
-    ss.dependency 'GoogleMobileVision/MVDataOutput', '~> 1.4'
-    ss.dependency 'GoogleMobileVision/FaceDetector', '~> 1.4'
-
-    ss.source_files = "ios/FaceDetector/**/*.{h,m}"
-    s.static_framework = true
-  end
-
-  s.subspec "TextDetector" do |ss|
-    ss.dependency 'react-native-camera/RN'
-    ss.dependency 'react-native-camera/RCT'
-
     ss.dependency 'Firebase/Core'
     ss.dependency 'Firebase/MLVision'
     ss.dependency 'Firebase/MLVisionTextModel'
     ss.dependency 'Firebase/MLVisionBarcodeModel'
-
-    ss.source_files = "ios/TextDetector/**/*.{h,m}"
     s.static_framework = true
   end
 

@@ -6,7 +6,7 @@
 #import <React/RCTLog.h>
 #import <React/RCTUtils.h>
 #import <React/UIView+React.h>
-#import  "RNSensorOrientationChecker.h"
+#import "RNSensorOrientationChecker.h"
 #import <FirebaseMLVision/FirebaseMLVision.h>
 
 @interface RNCamera ()
@@ -55,6 +55,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
         self.previewLayer.needsDisplayOnBoundsChange = YES;
 #endif
+        
         self.paused = NO;
         [self changePreviewOrientation:[UIApplication sharedApplication].statusBarOrientation];
         [self initializeCaptureSessionInput];
@@ -766,30 +767,8 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
     });
 }
 
-- (void)bridgeDidForeground:(NSNotification *)notification
-{
-
-    if (![self.session isRunning] && [self isSessionPaused]) {
-        self.paused = NO;
-        dispatch_async( self.sessionQueue, ^{
-            [self.session startRunning];
-        });
-    }
-}
-
-- (void)bridgeDidBackground:(NSNotification *)notification
-{
-    if ([self.session isRunning] && ![self isSessionPaused]) {
-        self.paused = YES;
-        dispatch_async( self.sessionQueue, ^{
-            [self.session stopRunning];
-        });
-    }
-}
-
 - (void)orientationChanged:(NSNotification *)notification {
-    UIInterfaceOrientation orientation = [[UIApplication sharedApplication] statusBarOrientation];
-    [self changePreviewOrientation:orientation];
+    [self changePreviewOrientation:[[UIApplication sharedApplication] statusBarOrientation]];
 }
 
 - (void)changePreviewOrientation:(UIInterfaceOrientation)orientation {
@@ -1079,19 +1058,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
     float height = bounds.size.height * scaleY;
     float originX = bounds.origin.x * scaleX;
     float originY = bounds.origin.y * scaleY;
-    NSDictionary *boundsDict =
-    @{
-      @"size":
-        @{
-              @"width": @(width),
-              @"height": @(height)
-        },
-      @"origin":
-        @{
-              @"x": @(originX),
-              @"y": @(originY)
-        }
-    };
+    NSDictionary *boundsDict = @{@"size": @{ @"width": @(width), @"height": @(height) }, @"origin": @{ @"x": @(originX), @"y": @(originY) }};
     return boundsDict;
 }
 
