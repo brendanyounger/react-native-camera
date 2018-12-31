@@ -495,6 +495,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         // At the time of writing AVCaptureMovieFileOutput and AVCaptureVideoDataOutput (> GMVDataOutput)
         // cannot coexist on the same AVSession (see: https://stackoverflow.com/a/4986032/1123156).
         // We stop face detection here and restart it in when AVCaptureMovieFileOutput finishes recording.
+        [self stopTextRecognition];
         [self setupMovieFileCapture];
     }
 
@@ -619,7 +620,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         // to avoid an exposure rack on some devices that can cause the first few
         // frames of the recorded output to be underexposed.
         // [self setupMovieFileCapture];
-        [self setupTextDetector];
+        [self setupOrDisableTextDetector];
 
         __weak RNCamera *weakSelf = self;
         [self setRuntimeErrorHandlingObserver:
@@ -787,13 +788,13 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 
 - (void)setupOrDisableBarcodeScanner
 {
-    [self _setupOrDisableMetadataOutput];
-    [self _updateMetadataObjectsToRecognize];
+//    [self _setupOrDisableMetadataOutput];
+//    [self _updateMetadataObjectsToRecognize];
 }
 
 - (void)_setupOrDisableMetadataOutput
 {
-    if ([self isReadingBarCodes] && (_metadataOutput == nil || ![self.session.outputs containsObject:_metadataOutput])) {
+    /*if ([self isReadingBarCodes] && (_metadataOutput == nil || ![self.session.outputs containsObject:_metadataOutput])) {
         AVCaptureMetadataOutput *metadataOutput = [[AVCaptureMetadataOutput alloc] init];
         if ([self.session canAddOutput:metadataOutput]) {
             [metadataOutput setMetadataObjectsDelegate:self queue:self.sessionQueue];
@@ -803,12 +804,12 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
     } else if (_metadataOutput != nil && ![self isReadingBarCodes]) {
         [self.session removeOutput:_metadataOutput];
         _metadataOutput = nil;
-    }
+    }*/
 }
 
 - (void)_updateMetadataObjectsToRecognize
 {
-    if (_metadataOutput == nil) {
+    /*if (_metadataOutput == nil) {
         return;
     }
 
@@ -822,13 +823,13 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         }
     }
 
-    [_metadataOutput setMetadataObjectTypes:availableRequestedObjectTypes];
+    [_metadataOutput setMetadataObjectTypes:availableRequestedObjectTypes];*/
 }
 
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputMetadataObjects:(NSArray *)metadataObjects
        fromConnection:(AVCaptureConnection *)connection
 {
-    for(AVMetadataObject *metadata in metadataObjects) {
+    /*for(AVMetadataObject *metadata in metadataObjects) {
         if([metadata isKindOfClass:[AVMetadataMachineReadableCodeObject class]]) {
             AVMetadataMachineReadableCodeObject *codeMetadata = (AVMetadataMachineReadableCodeObject *) metadata;
             for (id barcodeType in self.barCodeTypes) {
@@ -889,7 +890,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
                 }
             }
         }
-    }
+    }*/
 }
 
 # pragma mark - AVCaptureMovieFileOutput
@@ -1030,27 +1031,38 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 
 # pragma mark - TextDetector
 
-- (void)setupTextDetector {
-    [self stopTextRecognition];
-    self.videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
-    if (![self.session canAddOutput:_videoDataOutput]) {
-        RCTLogWarn(@"Failed to setup video data output");
-        [self stopTextRecognition];
-    } else {
-        NSDictionary *rgbOutputSettings = [NSDictionary dictionaryWithObject:[NSNumber numberWithInt:kCMPixelFormat_32BGRA] forKey:(id)kCVPixelBufferPixelFormatTypeKey];
-        [self.videoDataOutput setVideoSettings:rgbOutputSettings];
-        [self.videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
-        [self.videoDataOutput setSampleBufferDelegate:self queue:self.sessionQueue];
-        [self.session addOutput:_videoDataOutput];
-    }
-}
-
 - (void)setupOrDisableTextDetector {
     if ([self canReadText] || [self isReadingBarCodes]) {
         [self setupTextDetector];
     } else {
         [self stopTextRecognition];
     }
+}
+
+- (void)setupTextDetector {
+    if(nil == self.videoDataOutput) {
+        self.videoDataOutput = [[AVCaptureVideoDataOutput alloc] init];
+        if (![self.session canAddOutput:_videoDataOutput]) {
+            RCTLogWarn(@"Failed to setup video data output");
+            self.videoDataOutput = nil;
+        } else {
+            NSString *format = (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey;
+            NSDictionary *rgbOutputSettings = @{ format: @(kCMPixelFormat_32BGRA) };
+            [self.videoDataOutput setVideoSettings:rgbOutputSettings];
+            [self.videoDataOutput setAlwaysDiscardsLateVideoFrames:YES];
+            [self.videoDataOutput setSampleBufferDelegate:self queue:self.sessionQueue];
+            [self.session addOutput:_videoDataOutput];
+        }
+    } else {
+        RCTLogInfo(@"Already created text detector");
+    }
+}
+
+- (void)stopTextRecognition {
+    if ((nil != self.session) && (nil != self.videoDataOutput)) {
+        [self.session removeOutput:self.videoDataOutput];
+    }
+    self.videoDataOutput = nil;
 }
 
 -(NSDictionary *)getImageBounds:(CGRect)bounds scaleX:(float)scaleX scaleY:(float)scaleY {
@@ -1062,72 +1074,12 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
     return boundsDict;
 }
 
-- (FIRVisionImage*)imageFromBuffer:(CMSampleBufferRef)buffer {
-    FIRVisionDetectorImageOrientation orientation;
-    AVCaptureDevicePosition devicePosition = AVCaptureDevicePositionBack;
-    UIDeviceOrientation deviceOrientation = UIDevice.currentDevice.orientation;
-    
-    switch (deviceOrientation) {
-        case UIDeviceOrientationPortrait:
-            if (devicePosition == AVCaptureDevicePositionFront) {
-                orientation = FIRVisionDetectorImageOrientationLeftTop;
-            } else {
-                orientation = FIRVisionDetectorImageOrientationRightTop;
-            }
-            break;
-        case UIDeviceOrientationLandscapeLeft:
-            if (devicePosition == AVCaptureDevicePositionFront) {
-                orientation = FIRVisionDetectorImageOrientationBottomLeft;
-            } else {
-                orientation = FIRVisionDetectorImageOrientationTopLeft;
-            }
-            break;
-        case UIDeviceOrientationPortraitUpsideDown:
-            if (devicePosition == AVCaptureDevicePositionFront) {
-                orientation = FIRVisionDetectorImageOrientationRightBottom;
-            } else {
-                orientation = FIRVisionDetectorImageOrientationLeftBottom;
-            }
-            break;
-        case UIDeviceOrientationLandscapeRight:
-            if (devicePosition == AVCaptureDevicePositionFront) {
-                orientation = FIRVisionDetectorImageOrientationTopRight;
-            } else {
-                orientation = FIRVisionDetectorImageOrientationBottomRight;
-            }
-            break;
-        default:
-            orientation = FIRVisionDetectorImageOrientationRightTop;
-            break;
-    }
-    
-    // <-
-    // orientation = FIRVisionDetectorImageOrientationTopLeft;
-    // ?
-    // orientation = FIRVisionDetectorImageOrientationLeftTop;
-    // ->
-    // orientation = FIRVisionDetectorImageOrientationBottomRight;
-    // -> or <-
-    // orientation = FIRVisionDetectorImageOrientationRightBottom;
-    // ?
-    orientation = FIRVisionDetectorImageOrientationTopRight;
-    
-    FIRVisionImageMetadata *metadata = [[FIRVisionImageMetadata alloc] init];
-    metadata.orientation = orientation;
-    
-    FIRVisionImage *image = [[FIRVisionImage alloc] initWithBuffer:buffer];
-    image.metadata = metadata;
-    
-    return image;
-}
-
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
     CGSize previewSize = _previewLayer.frame.size;
     UIImage *uiImage = [RNCameraUtils convertBufferToUIImage:sampleBuffer previewSize:previewSize];
     
     if(_onBarCodeRead && (uiImage != nil) && (0 == dispatch_semaphore_wait(self.barcodeSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
         FIRVisionImage *firImage = [[FIRVisionImage alloc] initWithImage:uiImage];
-        // FIRVisionImage *firImage = [self imageFromBuffer:sampleBuffer];
         
         [self.barcodeDetector detectInImage:firImage completion:^(NSArray<FIRVisionBarcode *> *barcodes, NSError *error) {
             dispatch_semaphore_signal(self.barcodeSemaphore);
@@ -1140,8 +1092,6 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
                 for (FIRVisionBarcode *barcode in barcodes) {
                     NSString *displayValue = barcode.displayValue;
                     // NSString *rawValue = barcode.rawValue;
-                    
-                    // RCTLogInfo(@"Barcode %@, %@, %ld", barcode.displayValue, barcode.rawValue, UIDevice.currentDevice.orientation);
                     
                     [barcodeList addObject:displayValue];
                     
@@ -1169,7 +1119,6 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
     
     if(_onTextRecognized && (uiImage != nil) && (0 == dispatch_semaphore_wait(self.textSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
         FIRVisionImage *firImage = [[FIRVisionImage alloc] initWithImage:uiImage];
-        // FIRVisionImage *firImage = [self imageFromBuffer:sampleBuffer];
         float scaleX = previewSize.width / uiImage.size.width;
         float scaleY = previewSize.height / uiImage.size.height;
         
@@ -1213,13 +1162,6 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
             }
         }];
     }
-}
-
-- (void)stopTextRecognition {
-    if (self.videoDataOutput) {
-        [self.session removeOutput:self.videoDataOutput];
-    }
-    self.videoDataOutput = nil;
 }
 
 - (bool)isRecording {
