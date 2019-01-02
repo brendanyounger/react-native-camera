@@ -6,33 +6,32 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
 import org.reactnative.camera.CameraViewManager;
-import org.reactnative.barcodedetector.RNBarcodeDetector;
 
 public class BarcodeDetectionErrorEvent extends Event<BarcodeDetectionErrorEvent> {
 
   private static final Pools.SynchronizedPool<BarcodeDetectionErrorEvent> EVENTS_POOL = new Pools.SynchronizedPool<>(3);
-  private RNBarcodeDetector mBarcodeDetector;
+  private Exception mException;
 
   private BarcodeDetectionErrorEvent() {
   }
 
-  public static BarcodeDetectionErrorEvent obtain(int viewTag, RNBarcodeDetector barcodeDetector) {
+  public static BarcodeDetectionErrorEvent obtain(int viewTag, Exception exception) {
     BarcodeDetectionErrorEvent event = EVENTS_POOL.acquire();
     if (event == null) {
       event = new BarcodeDetectionErrorEvent();
     }
-    event.init(viewTag, barcodeDetector);
+    event.init(viewTag, exception);
     return event;
   }
 
-  private void init(int viewTag, RNBarcodeDetector faceDetector) {
+  private void init(int viewTag, Exception exception) {
     super.init(viewTag);
-    mBarcodeDetector = faceDetector;
+    mException = exception;
   }
 
   @Override
   public short getCoalescingKey() {
-    return 0;
+    return (mException == null) ? 0 : (short)(mException.hashCode() % Short.MAX_VALUE);
   }
 
   @Override
@@ -47,7 +46,8 @@ public class BarcodeDetectionErrorEvent extends Event<BarcodeDetectionErrorEvent
 
   private WritableMap serializeEventData() {
     WritableMap map = Arguments.createMap();
-    map.putBoolean("isOperational", mBarcodeDetector != null && mBarcodeDetector.isOperational());
+    map.putString("message", mException.getMessage());
+    map.putString("description", mException.toString());
     return map;
   }
 }

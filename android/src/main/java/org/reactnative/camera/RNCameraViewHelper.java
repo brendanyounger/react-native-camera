@@ -14,17 +14,17 @@ import com.facebook.react.bridge.ReactContext;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.UIManagerModule;
 import com.google.android.cameraview.CameraView;
-import com.google.android.gms.vision.barcode.Barcode;
 import com.google.android.gms.vision.face.Face;
 import com.google.android.gms.vision.text.TextBlock;
-import com.google.zxing.Result;
+import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcode;
+
 import org.reactnative.camera.events.*;
 import org.reactnative.camera.utils.ImageDimensions;
-import org.reactnative.barcodedetector.RNBarcodeDetector;
 import org.reactnative.facedetector.RNFaceDetector;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.List;
 
 public class RNCameraViewHelper {
 
@@ -223,29 +223,14 @@ public class RNCameraViewHelper {
 
   // Barcode detection events
 
-  public static void emitBarcodesDetectedEvent(
-      ViewGroup view,
-      SparseArray<Barcode> barcodes
-  ) {
-    BarcodesDetectedEvent event = BarcodesDetectedEvent.obtain(
-        view.getId(),
-        barcodes
-    );
-
+  public static void emitBarcodesDetectedEvent(ViewGroup view, List<FirebaseVisionBarcode> barcodes) {
+    BarcodesDetectedEvent event = BarcodesDetectedEvent.obtain(view.getId(), barcodes);
     ReactContext reactContext = (ReactContext) view.getContext();
     reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher().dispatchEvent(event);
   }
 
-  public static void emitBarcodeDetectionErrorEvent(ViewGroup view, RNBarcodeDetector barcodeDetector) {
-    BarcodeDetectionErrorEvent event = BarcodeDetectionErrorEvent.obtain(view.getId(), barcodeDetector);
-    ReactContext reactContext = (ReactContext) view.getContext();
-    reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher().dispatchEvent(event);
-  }
-
-  // Bar code read event
-
-  public static void emitBarCodeReadEvent(ViewGroup view, Result barCode, int width, int height) {
-    BarCodeReadEvent event = BarCodeReadEvent.obtain(view.getId(), barCode, width,  height);
+  public static void emitBarcodeDetectionErrorEvent(ViewGroup view, Exception exception) {
+    BarcodeDetectionErrorEvent event = BarcodeDetectionErrorEvent.obtain(view.getId(), exception);
     ReactContext reactContext = (ReactContext) view.getContext();
     reactContext.getNativeModule(UIManagerModule.class).getEventDispatcher().dispatchEvent(event);
   }

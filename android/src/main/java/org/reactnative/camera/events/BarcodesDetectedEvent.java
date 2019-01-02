@@ -1,30 +1,26 @@
 package org.reactnative.camera.events;
 
 import android.support.v4.util.Pools;
-import android.util.SparseArray;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.uimanager.events.Event;
 import com.facebook.react.uimanager.events.RCTEventEmitter;
-import com.google.android.gms.vision.barcode.Barcode;
+import com.google.firebase.ml.vision.barcode.FirebaseVisionBarcode;
 import org.reactnative.camera.CameraViewManager;
-import org.reactnative.barcodedetector.BarcodeFormatUtils;
+import java.util.List;
 
 public class BarcodesDetectedEvent extends Event<BarcodesDetectedEvent> {
 
   private static final Pools.SynchronizedPool<BarcodesDetectedEvent> EVENTS_POOL =
       new Pools.SynchronizedPool<>(3);
 
-  private SparseArray<Barcode> mBarcodes;
+  private List<FirebaseVisionBarcode> mBarcodes;
 
   private BarcodesDetectedEvent() {
   }
 
-  public static BarcodesDetectedEvent obtain(
-      int viewTag,
-      SparseArray<Barcode> barcodes
-  ) {
+  public static BarcodesDetectedEvent obtain(int viewTag, List<FirebaseVisionBarcode> barcodes) {
     BarcodesDetectedEvent event = EVENTS_POOL.acquire();
     if (event == null) {
       event = new BarcodesDetectedEvent();
@@ -33,26 +29,20 @@ public class BarcodesDetectedEvent extends Event<BarcodesDetectedEvent> {
     return event;
   }
 
-  private void init(
-      int viewTag,
-      SparseArray<Barcode> barcodes
-  ) {
+  private void init(int viewTag, List<FirebaseVisionBarcode> barcodes) {
     super.init(viewTag);
     mBarcodes = barcodes;
   }
 
-  /**
-   * note(@sjchmiela)
-   * Should the events about detected barcodes coalesce, the best strategy will be
-   * to ensure that events with different barcodes count are always being transmitted.
-   */
   @Override
   public short getCoalescingKey() {
-    if (mBarcodes.size() > Short.MAX_VALUE) {
-      return Short.MAX_VALUE;
+    int hash = 0;
+
+    for(FirebaseVisionBarcode barcode : mBarcodes) {
+      hash ^= barcode.hashCode();
     }
 
-    return (short) mBarcodes.size();
+    return (short)hash;
   }
 
   @Override
@@ -66,20 +56,24 @@ public class BarcodesDetectedEvent extends Event<BarcodesDetectedEvent> {
   }
 
   private WritableMap serializeEventData() {
-    WritableArray barcodesList = Arguments.createArray();
+    WritableArray barcodeList = Arguments.createArray();
 
-    for (int i = 0; i < mBarcodes.size(); i++) {
-      Barcode barcode = mBarcodes.valueAt(i);
-      WritableMap serializedBarcode = Arguments.createMap();
-      serializedBarcode.putString("data", barcode.displayValue);
-      serializedBarcode.putString("type", BarcodeFormatUtils.get(barcode.format));
-      barcodesList.pushMap(serializedBarcode);
+    // Rect bounds = barcode.getBoundingBox();
+    // Point[] corners = barcode.getCornerPoints();
+    // String rawValue = barcode.getRawValue();
+    // String value = barcode.getDisplayValue();
+
+    for(FirebaseVisionBarcode barcode : mBarcodes) {
+      WritableMap map = Arguments.createMap();
+      map.putString("value", barcode.getDisplayValue());
+      map.putString("rawValue", barcode.getRawValue());
+      map.putInt("type", barcode.getValueType());
+      barcodeList.pushMap(map);
     }
 
     WritableMap event = Arguments.createMap();
     event.putString("type", "barcode");
-    event.putArray("barcodes", barcodesList);
-    event.putInt("target", getViewTag());
+    event.putArray("barcodes", barcodeList);
     return event;
   }
 }
