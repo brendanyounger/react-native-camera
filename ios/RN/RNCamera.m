@@ -770,13 +770,14 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 }
 
 - (void)orientationChanged:(NSNotification *)notification {
+    // RCTLogInfo(@"orientation %@", [notification userInfo]);
     [self changePreviewOrientation:[[UIApplication sharedApplication] statusBarOrientation]];
 }
 
 - (void)changePreviewOrientation:(UIInterfaceOrientation)orientation {
     __weak typeof(self) weakSelf = self;
-    // AVCaptureVideoOrientation videoOrientation = [RNCameraUtils videoOrientationForInterfaceOrientation:orientation];
-    AVCaptureVideoOrientation videoOrientation = [RNCameraUtils videoOrientationForDeviceOrientation:UIDevice.currentDevice.orientation];
+    AVCaptureVideoOrientation videoOrientation = [RNCameraUtils videoOrientationForInterfaceOrientation:orientation];
+    // AVCaptureVideoOrientation videoOrientation = [RNCameraUtils videoOrientationForDeviceOrientation:UIDevice.currentDevice.orientation];
     dispatch_async(dispatch_get_main_queue(), ^{
         __strong typeof(self) strongSelf = weakSelf;
         if (strongSelf && strongSelf.previewLayer.connection.isVideoOrientationSupported) {
