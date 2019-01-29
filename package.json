@@ -1,7 +1,7 @@
 {
   "name": "react-native-camera",
   "description": "A Camera component for React Native. Also reads barcodes.",
-  "version": "1.8.0",
+  "version": "1.9.2",
   "author": "Lochlan Wansbrough <lochie@live.com> (http://lwansbrough.com)",
   "collective": {
     "type": "opencollective",
@@ -57,6 +57,10 @@
     "*.d.ts": [
       "yarn prettier",
       "git add"
+    ],
+    "*.md": [
+      "yarn prettier",
+      "git add"
     ]
   },
   "main": "src/index.js",
@@ -71,7 +75,7 @@
     "commitmsg": "commitlint -e $GIT_PARAMS",
     "lint": "eslint src --max-warnings=0",
     "lint:staged": "lint-staged",
-    "prettier": "prettier --write --single-quote true --trailing-comma all --print-width 100",
+    "prettier": "prettier --write",
     "ci:publish": "semantic-release"
   },
   "types": "types",

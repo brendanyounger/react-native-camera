@@ -117,7 +117,7 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
 
       @Override
       public void onFramePreview(CameraView cameraView, byte[] data, int width, int height, int rotation) {
-        int deviceRotation = RNCameraViewHelper.getCorrectCameraRotation(rotation, getFacing());
+        int deviceRotation = RNCameraViewHelper.getCorrectCameraRotation(rotation, getFacing(), getCameraOrientation());
         int mlRotation;
 
         switch(deviceRotation) {
@@ -256,6 +256,9 @@ public class RNCameraView extends CameraView implements LifecycleEventListener, 
       CamcorderProfile profile = CamcorderProfile.get(CamcorderProfile.QUALITY_HIGH);
       if (options.hasKey("quality")) {
         profile = RNCameraViewHelper.getCamcorderProfile(options.getInt("quality"));
+      }
+      if (options.hasKey("videoBitrate")) {
+        profile.videoBitRate = options.getInt("videoBitrate");
       }
 
       boolean recordAudio = true;

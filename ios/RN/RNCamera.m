@@ -43,25 +43,25 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         self.session = [AVCaptureSession new];
         self.sessionQueue = dispatch_queue_create("cameraQueue", DISPATCH_QUEUE_SERIAL);
         self.sensorOrientationChecker = [RNSensorOrientationChecker new];
-        
+
         self.textDetector = [[FIRVision vision] onDeviceTextRecognizer];
         self.textSemaphore = dispatch_semaphore_create(1);
-        
+
         self.barcodeDetector = [[FIRVision vision] barcodeDetector];
         self.barcodeSemaphore = dispatch_semaphore_create(1);
-        
+
 #if !(TARGET_IPHONE_SIMULATOR)
         self.previewLayer = [AVCaptureVideoPreviewLayer layerWithSession:self.session];
         self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
         self.previewLayer.needsDisplayOnBoundsChange = YES;
 #endif
-        
+
         self.paused = NO;
         [self changePreviewOrientation:[UIApplication sharedApplication].statusBarOrientation];
         [self initializeCaptureSessionInput];
         [self startSession];
         self.autoFocus = -1;
-        
+
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(orientationChanged:)
                                                      name:UIDeviceOrientationDidChangeNotification
@@ -589,14 +589,9 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
     [self onReady:nil];
     return;
 #endif
-    //    NSDictionary *cameraPermissions = [EXCameraPermissionRequester permissions];
-    //    if (![cameraPermissions[@"status"] isEqualToString:@"granted"]) {
-    //        [self onMountingError:@{@"message": @"Camera permissions not granted - component could not be rendered."}];
-    //        return;
-    //    }
-    
+
     [[UIDevice currentDevice] beginGeneratingDeviceOrientationNotifications];
-    
+
     dispatch_async(self.sessionQueue, ^{
         if (self.presetCamera == AVCaptureDevicePositionUnspecified) {
             return;
@@ -645,9 +640,9 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 #if TARGET_IPHONE_SIMULATOR
     return;
 #endif
-    
+
     [[UIDevice currentDevice] endGeneratingDeviceOrientationNotifications];
-    
+
     dispatch_async(self.sessionQueue, ^{
         [self.previewLayer removeFromSuperlayer];
         [self.session commitConfiguration];
@@ -671,7 +666,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
     void (^statusBlock)() = ^() {
         interfaceOrientation = [[UIApplication sharedApplication] statusBarOrientation];
     };
-    
+
     if ([NSThread isMainThread]) {
         statusBlock();
     } else {
@@ -930,7 +925,7 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
         void (^resolveBlock)(void) = ^() {
             self.videoRecordedResolve(result);
         };
-        
+
         result[@"uri"] = outputFileURL.absoluteString;
         result[@"videoOrientation"] = @([self.orientation integerValue]);
         result[@"deviceOrientation"] = @([self.deviceOrientation integerValue]);
@@ -1079,24 +1074,24 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
 - (void)captureOutput:(AVCaptureOutput *)captureOutput didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
     CGSize previewSize = _previewLayer.frame.size;
     UIImage *uiImage = [RNCameraUtils convertBufferToUIImage:sampleBuffer previewSize:previewSize];
-    
+
     if(_onBarCodeRead && (uiImage != nil) && (0 == dispatch_semaphore_wait(self.barcodeSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
         FIRVisionImage *firImage = [[FIRVisionImage alloc] initWithImage:uiImage];
-        
+
         [self.barcodeDetector detectInImage:firImage completion:^(NSArray<FIRVisionBarcode *> *barcodes, NSError *error) {
             dispatch_semaphore_signal(self.barcodeSemaphore);
-            
+
             if (error != nil) {
                 RCTLogWarn(@"Error! %@", error);
             } else if (barcodes != nil && barcodes.count > 0) {
                 NSMutableArray* barcodeList = [[NSMutableArray alloc] init];
-                
+
                 for (FIRVisionBarcode *barcode in barcodes) {
                     NSString *displayValue = barcode.displayValue;
                     // NSString *rawValue = barcode.rawValue;
-                    
+
                     [barcodeList addObject:displayValue];
-                    
+
                     FIRVisionBarcodeValueType valueType = barcode.valueType;
                     switch (valueType) {
                         case FIRVisionBarcodeValueTypeWiFi:
@@ -1112,52 +1107,52 @@ static NSDictionary *defaultFaceDetectorOptions = nil;
                             break;
                     }
                 }
-                
+
                 self.onBarCodeRead(@{@"type": @"BarcodeList",
                                      @"barcodes": barcodeList});
             }
         }];
     }
-    
+
     if(_onTextRecognized && (uiImage != nil) && (0 == dispatch_semaphore_wait(self.textSemaphore, dispatch_time(DISPATCH_TIME_NOW, 31250000)))) {
         FIRVisionImage *firImage = [[FIRVisionImage alloc] initWithImage:uiImage];
         float scaleX = previewSize.width / uiImage.size.width;
         float scaleY = previewSize.height / uiImage.size.height;
-        
+
         [self.textDetector processImage:firImage completion:^(FIRVisionText *_Nullable result, NSError *_Nullable error) {
             dispatch_semaphore_signal(self.textSemaphore);
-            
+
             if (error != nil) {
                 RCTLogWarn(@"Error! %@", error);
             } else if(result != nil) {
                 NSMutableArray *textBlocks = [[NSMutableArray alloc] init];
-                
+
                 for (FIRVisionTextBlock *block in result.blocks) {
                     NSMutableArray *lineBlocks = [[NSMutableArray alloc] init];
-                    
+
                     // RCTLogInfo(@"Block %@, %ld", block.text, UIDevice.currentDevice.orientation);
-                    
+
                     for (FIRVisionTextLine *line in block.lines) {
                         NSMutableArray *elementBlocks = [[NSMutableArray alloc] init];
-                        
+
                         for (FIRVisionTextElement *element in line.elements) {
                             [elementBlocks addObject:@{@"type": @"element",
                                                        @"value": element.text,
                                                        @"bounds": [self getImageBounds:element.frame scaleX:scaleX scaleY:scaleY]}];
                         }
-                        
+
                         [lineBlocks addObject:@{@"type": @"line",
                                                 @"value": line.text,
                                                 @"bounds": [self getImageBounds:line.frame scaleX:scaleX scaleY:scaleY],
                                                 @"components": elementBlocks}];
                     }
-                    
+
                     [textBlocks addObject:@{@"type": @"block",
                                             @"value": block.text,
                                             @"bounds": [self getImageBounds:block.frame scaleX:scaleX scaleY:scaleY],
                                             @"components": lineBlocks}];
                 }
-                
+
                 self.onTextRecognized(@{@"type": @"TextBlock",
                                         @"text": result.text,
                                         @"textBlocks": textBlocks});
