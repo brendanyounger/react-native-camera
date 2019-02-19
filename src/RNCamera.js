@@ -37,7 +37,11 @@ const requestPermissions = async (
       PermissionsAndroid.PERMISSIONS.CAMERA,
       params,
     );
-    hasCameraPermissions = cameraPermissionResult === PermissionsAndroid.RESULTS.GRANTED;
+    if (typeof cameraPermissionResult === 'boolean') {
+      hasCameraPermissions = cameraPermissionResult;
+    } else {
+      hasCameraPermissions = cameraPermissionResult === PermissionsAndroid.RESULTS.GRANTED;
+    }
   }
 
   if (captureAudio) {
@@ -49,7 +53,11 @@ const requestPermissions = async (
           PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
           params,
         );
-        hasRecordAudioPermissions = audioPermissionResult === PermissionsAndroid.RESULTS.GRANTED;
+        if (typeof audioPermissionResult === 'boolean') {
+          hasRecordAudioPermissions = audioPermissionResult
+        } else {
+          hasRecordAudioPermissions = audioPermissionResult === PermissionsAndroid.RESULTS.GRANTED;
+        }
       } else if (__DEV__) {
         // eslint-disable-next-line no-console
         console.warn(
@@ -135,6 +143,7 @@ type PropsType = typeof View.props & {
   focusDepth?: number,
   type?: number | string,
   onCameraReady?: Function,
+  onStatusChange?: Function,
   onBarCodeRead?: Function,
   onPictureSaved?: Function,
   onGoogleVisionBarcodesDetected?: Function,
@@ -264,6 +273,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
     focusDepth: PropTypes.number,
     onMountError: PropTypes.func,
     onCameraReady: PropTypes.func,
+    onStatusChange: PropTypes.func,
     onBarCodeRead: PropTypes.func,
     onPictureSaved: PropTypes.func,
     onGoogleVisionBarcodesDetected: PropTypes.func,
@@ -465,6 +475,12 @@ export default class Camera extends React.Component<PropsType, StateType> {
     }
   };
 
+  _onStatusChange = () => {
+    if (this.props.onStatusChange) {
+      this.props.onStatusChange({ cameraStatus: this.getStatus(), recordAudioPermissionStatus: this.state.recordAudioPermissionStatus });
+    }
+  };
+
   _onPictureSaved = ({ nativeEvent }: EventCallbackArgumentsType) => {
     if (this.props.onPictureSaved) {
       this.props.onPictureSaved(nativeEvent);
@@ -523,7 +539,7 @@ export default class Camera extends React.Component<PropsType, StateType> {
       isAuthorized: hasCameraPermissions,
       isAuthorizationChecked: true,
       recordAudioPermissionStatus,
-    });
+    }, this._onStatusChange);
   }
 
   getStatus = (): Status => {
